@@ -1,0 +1,35 @@
+{
+    "name": "astro-developer-portfolio",
+    "type": "module",
+    "version": "0.0.1",
+    "scripts": {
+        "dev": "astro dev",
+        "build": "astro build",
+        "preview": "astro preview",
+        "astro": "astro",
+        "voice-assistant": "python src/components/ContentAvatar.py"
+    },
+    "dependencies": {
+        "@astrojs/react": "^4.4.1",
+        "@azure/identity": "latest",
+        "@types/react": "^19.2.2",
+        "@types/react-dom": "^19.2.2",
+        "astro": "^5.4.2",
+        "microsoft-cognitiveservices-speech-sdk": "^1.46.0",
+        "openai": "latest",
+        "react": "^19.2.0",
+        "react-dom": "^19.2.0",
+        "shiki": "^3.1.0",
+        "swetrix": "^3.5.4",
+        "tailwindcss": "^3.4.17",
+        "three": "^0.181.0"
+    },
+    "devDependencies": {
+        "@astrojs/sitemap": "^3.2.1",
+        "@astrojs/tailwind": "^5.1.4",
+        "@types/three": "^0.181.0",
+        "@types/webrtc": "^0.0.47",
+        "astro-compress": "^2.3.6",
+        "sass": "^1.85.1"
+    }
+}

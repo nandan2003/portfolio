@@ -1,0 +1,451 @@
+---
+const user = {
+    name: 'Nandan Vallamdasu',
+    title: 'AI Engineer',
+    location: 'Hyderabad, India',
+    email: 'nandan.vallamdasu@zohomail.in',
+    github: 'https://github.com/nandan2003',
+    linkedin: 'https://www.linkedin.com/in/nandan-vallamdasu',
+    twitter: 'https://x.com/NandanV76'
+};
+const about = `AI Engineer blending analytical precision with creative automation to build data systems that don't just process information they perform.
+Obsessed with turning raw data into scalable intelligence through Azure, Databricks, and Python.`;
+const skills = `
+- Languages: Python, SQL, C++
+- Cloud/Data: Azure, Databricks, Data Factory, Synapse, Power BI, Microsoft Fabric
+- AI/ML: LangChain, Azure AI, Vector Databases, NLP
+- DevOps: Docker, GitHub Actions, n8n, Power Automate
+- Other: Git, HTML, Problem Solving, Critical Thinking
+`;
+---
+
+<div id="terminal" class="h-full font-mono text-sm leading-relaxed text-gray-300" onclick="document.getElementById('terminal-input').focus()">
+    <div id="terminal-history"></div>
+    <div class="flex items-center">
+        <span id="prompt-user" class="text-primary">nandanv76@portfolio</span>
+        <span id="prompt-symbol" class="mr-2">:~$</span>
+        <input
+            type="text"
+            id="terminal-input"
+            class="flex-1 bg-transparent border-none outline-none text-gray-300 p-0 m-0"
+            autofocus
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
+        />
+    </div>
+</div>
+
+<script define:vars={{ user, about, skills }}>
+    const terminal = document.getElementById('terminal');
+    const historyContainer = document.getElementById('terminal-history');
+    const input = document.getElementById('terminal-input');
+    const promptUser = document.getElementById('prompt-user');
+    const promptSymbol = document.getElementById('prompt-symbol');
+
+    // --- Block cursor setup ---
+    const promptRow = promptSymbol.parentElement; // the .flex container
+    promptRow.style.position = 'relative';
+
+    const blockCursor = document.createElement('span');
+    blockCursor.id = 'block-cursor';
+    promptRow.appendChild(blockCursor);
+
+    function positionBlockCursor() {
+    const inputRect = input.getBoundingClientRect();
+    const rowRect = promptRow.getBoundingClientRect();
+    const leftInRow = inputRect.left - rowRect.left;
+    blockCursor.style.left = `calc(${leftInRow}px + ${input.value.length}ch + 0.1px)`;
+    }
+
+    ['input','keydown','keyup','focus','blur'].forEach(evt =>
+    input.addEventListener(evt, positionBlockCursor)
+    );
+
+    window.addEventListener('resize', positionBlockCursor);
+    positionBlockCursor();
+    // --- End block cursor setup ---
+
+    let commandHistory = [];
+    let historyIndex = -1;
+    let isAiMode = false;
+    let aiSession = [];
+    let aiCommandHistory = [];
+    let aiHistoryIndex = -1;
+
+    // --- Simulated File System ---
+    // --- Correct hierarchical file system ---
+    const fileSystem = {
+        '/': {
+            type: 'dir',
+            children: {
+                home: {
+                    type: 'dir',
+                    children: {
+                        nandanv76: {
+                            type: 'dir',
+                            children: {
+                                portfolio: {
+                                    type: 'dir',
+                                    children: {
+                                        photos: {
+                                            type: 'dir',
+                                            children: {
+                                                'fake.png': { type: 'file' },
+                                                'photos.jpg': { type: 'file' }
+                                            }
+                                        },
+                                        texts: {
+                                            type: 'dir',
+                                            children: {
+                                                'fake.js': { type: 'file' },
+                                                'text.py': { type: 'file' }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    // --- start here by default ---
+    let currentDir = '/home/nandanv76/portfolio';
+
+    // --- fixed recursive node resolver ---
+    function getNode(path) {
+        const parts = path.split('/').filter(Boolean);
+        let node = fileSystem['/'];
+        for (const p of parts) {
+            if (!node.children || !node.children[p]) return null;
+            node = node.children[p];
+        }
+        return node;
+    }
+
+    function listEntries(node) {
+    if (!node || node.type !== 'dir') return [];
+    // stable order: dirs first (A–Z), then files (A–Z)
+    const names = Object.keys(node.children);
+    const dirs = names.filter(n => node.children[n].type === 'dir').sort();
+    const files = names.filter(n => node.children[n].type !== 'dir').sort();
+    return [...dirs, ...files].map(name => [name, node.children[name]]);
+    }
+
+    function renderTreeLines(node) {
+    const lines = [];
+    const entries = listEntries(node);
+    const lastIdx = entries.length - 1;
+
+    function walk(n, prefix) {
+        const items = listEntries(n);
+        items.forEach(([,], i) => {}); // no-op to keep shape obvious
+    }
+
+    function walkEntry(name, child, prefix, isLast) {
+        const branch = isLast ? '└── ' : '├── ';
+        const line = `${prefix}${branch}${name}${child.type === 'dir' ? '/' : ''}`;
+        lines.push(line);
+
+        if (child.type === 'dir') {
+        const nextPrefix = prefix + (isLast ? '    ' : '│   ');
+        const kids = listEntries(child);
+        kids.forEach(([kname, knode], idx) => {
+            const kidLast = idx === kids.length - 1;
+            walkEntry(kname, knode, nextPrefix, kidLast);
+        });
+        }
+    }
+
+    entries.forEach(([name, child], idx) => {
+        const isLast = idx === lastIdx;
+        walkEntry(name, child, '', isLast);
+    });
+
+    return lines;
+    }
+
+    const commands = {
+        help: `Available commands:
+  <span class="text-cyan-400">about</span>      - Who I am
+  <span class="text-cyan-400">skills</span>     - My technical skills
+  <span class="text-cyan-400">contact</span>    - How to reach me
+  <span class="text-cyan-400">clear</span>      - Clear the terminal
+  <span class="text-cyan-400">ls</span>         - List files in this directory
+  <span class="text-cyan-400">cd</span>         - Change directory (use cd, cd .., cd /, cd dir)
+  <span class="text-cyan-400">pwd</span>        - Print working directory
+  <span class="text-cyan-400">tree</span>       - Display directory structure as a tree
+  <span class="text-cyan-400">whoami</span>     - Show current user
+  <span class="text-cyan-400">fastfetch</span>  - Show system summary (like neofetch)
+  <span class="text-cyan-400">date</span>       - Display the current date
+  <span class="text-cyan-400">ai</span>         - Enter AI chat mode`,
+        about,
+        skills: `<span class="text-green-400">Technical Skills:</span>${skills}`,
+        contact: `You can reach me via:
+  <span class="text-cyan-400">Email</span>      - <a href="mailto:${user.email}" class="underline">${user.email}</a>
+  <span class="text-cyan-400">GitHub</span>     - <a href="${user.github}" target="_blank" class="underline">${user.github.split('/').pop()}</a>
+  <span class="text-cyan-400">LinkedIn</span>   - <a href="${user.linkedin}" target="_blank" class="underline">${user.linkedin.split('/in/').pop()}</a>
+  <span class="text-cyan-400">Twitter</span>    - <a href="${user.twitter}" target="_blank" class="underline">${user.twitter.split('/').pop()}</a>`,
+
+        whoami: () => {
+            return `<span class="text-green-400">${user.name}</span>`;
+        },
+
+        fastfetch: () => {
+            const banner = `
+        <span class="text-amber-400">                                                                                                                     
+    mm   m                   #                       m    m        ""#    ""#                      #                             
+    #"m  #  mmm   m mm    mmm#   mmm   m mm          "m  m"  mmm     #      #     mmm   mmmmm   mmm#   mmm    mmm   m   m        
+    # #m # "   #  #"  #  #" "#  "   #  #"  #          #  #  "   #    #      #    "   #  # # #  #" "#  "   #  #   "  #   #        
+    #  # # m"""#  #   #  #   #  m"""#  #   #          "mm"  m"""#    #      #    m"""#  # # #  #   #  m"""#   """m  #   #        
+    #   ## "mm"#  #   #  "#m##  "mm"#  #   #           ##   "mm"#    "mm    "mm  "mm"#  # # #  "#m##  "mm"#  "mmm"  "mm"#        
+        </span>`
+
+            const info = `
+                <span class="text-cyan-400">User:</span>          ${user.name}
+                <span class="text-cyan-400">Host:</span>          portfolio.local
+                <span class="text-cyan-400">OS:</span>            AstroOS 1.0 (x86_64)
+                <span class="text-cyan-400">Kernel:</span>        6.6.12-virtual
+                <span class="text-cyan-400">Uptime:</span>        3 hours, 42 mins
+                <span class="text-cyan-400">Packages:</span>      1287 (simulated)
+                <span class="text-cyan-400">Shell:</span>         yukthi-terminal v2.1
+                <span class="text-cyan-400">Resolution:</span>    1920x1080
+                <span class="text-cyan-400">DE:</span>            Astro Desktop
+                <span class="text-cyan-400">Theme:</span>         Monokai [Dark]
+                <span class="text-cyan-400">CPU:</span>           AMD Ryzen 7 (8) @ 3.80GHz
+                <span class="text-cyan-400">GPU:</span>           NVIDIA RTX 3060
+                <span class="text-cyan-400">Memory:</span>        7.9 GiB / 16 GiB
+        `;
+
+            return `
+                <pre class="font-mono leading-none m-0 p-0">${banner}</pre>
+                <div class="flex flex-row font-mono items-start m-0 p-0 gap-2">
+                <pre class="leading-none text-gray-300 m-0 p-0">${info}</pre>
+        </div>`;
+        },
+
+        tree: () => {
+            const node = getNode(currentDir);
+            if (!node || node.type !== 'dir') return 'Not a directory.';
+            const header = currentDir === '/' ? '/' : '.';
+            const lines = [header, ...renderTreeLines(node)];
+            return `<pre class="whitespace-pre text-gray-300">${lines.join('\n')}</pre>`;
+            },
+
+        clear: () => {
+            historyContainer.innerHTML = '';
+            return '';
+        },
+        ls: () => {
+            const node = getNode(currentDir);
+            if (!node || node.type !== 'dir') return 'Not a directory.';
+            const items = Object.keys(node.children)
+                .map((k) => {
+                    const c = node.children[k];
+                    return c.type === 'dir'
+                        ? `<span class="text-blue-400">${k}/</span>`
+                        : `<span class="text-gray-300">${k}</span>`;
+                })
+                .join('\n  ');
+            return `  ${items}`;
+        },
+        pwd: () => currentDir,
+        cd: (arg) => {
+            if (!arg || arg === '~') {
+                currentDir = '/home/nandanv76/portfolio';
+                return '';
+            }
+            if (arg === '/') {
+                currentDir = '/';
+                return '';
+            }
+            if (arg === '..') {
+                if (currentDir === '/' || currentDir === '/home' || currentDir === '/home/nandanv76' || currentDir === '/home/nandanv76/portfolio') {
+                    // stay at current level
+                    return '';
+                }
+                const parts = currentDir.split('/');
+                parts.pop();
+                currentDir = parts.join('/') || '/';
+                return '';
+            }
+            const node = getNode(currentDir);
+            if (node && node.children[arg] && node.children[arg].type === 'dir') {
+                currentDir = currentDir.replace(/\/$/, '') + '/' + arg;
+                return '';
+            }
+            return `cd: no such directory: ${arg}`;
+        },
+        
+        date: () => new Date().toString(),
+        ai: () => {
+            isAiMode = true;
+            aiSession = [];
+            aiCommandHistory = [];
+            aiHistoryIndex = -1;
+            historyIndex = -1;
+            promptUser.textContent = 'You';
+            promptUser.classList.replace('text-primary', 'text-cyan-400');
+            promptSymbol.textContent = ':';
+            return `Yukthi online.\nAsk anything, or type 'exit' to leave.`;
+        }
+    };
+
+    const welcomeMessage = `<span class="text-amber-400">Welcome to my interactive terminal!</span>
+Type <span class="text-cyan-400">'help'</span> to see a list of available commands.
+`;
+
+    function appendToHistory(line) {
+        const div = document.createElement('div');
+        div.innerHTML = line;
+        div.classList.add('whitespace-pre-wrap');
+        historyContainer.appendChild(div);
+        terminal.scrollTo({ top: terminal.scrollHeight, behavior: 'smooth' });
+        return div;
+    }
+
+    async function handleAiChat(message) {
+        appendToHistory(`<span class="text-cyan-400">You:</span> ${message}`);
+        aiSession.push({ role: 'user', content: message });
+        aiCommandHistory.unshift(message);
+        aiHistoryIndex = -1;
+        if (['exit', 'quit'].includes(message.toLowerCase())) {
+            isAiMode = false;
+            promptUser.textContent = 'nandanv76@portfolio';
+            promptUser.classList.replace('text-cyan-400', 'text-primary');
+            promptSymbol.textContent = ':~$';
+            appendToHistory('Exited AI chat mode.');
+            input.value = '';
+            aiCommandHistory = [];
+            aiHistoryIndex = -1;
+            historyIndex = -1;
+            return;
+        }
+
+        input.value = '';
+        input.disabled = true;
+        const typingMessage = appendToHistory(`<span class="text-green-400">AI:</span> <em class="text-gray-400">Typing...</em>`);
+
+        try {
+            const res = await fetch('/api/chat/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ history: aiSession })
+            });
+            if (!res.ok) throw new Error(`Server error: ${res.status}`);
+            const data = await res.json();
+            const aiResponse = data.response?.trim();
+            typingMessage.remove();
+            if (aiResponse) {
+                appendToHistory(`<span class="text-green-400">AI:</span> ${aiResponse}`);
+                aiSession.push({ role: 'assistant', content: aiResponse });
+            } else {
+                appendToHistory(`<span class="text-green-400">AI:</span> [No response received]`);
+            }
+        } catch {
+            typingMessage.remove();
+            appendToHistory(`<span class="text-red-500">Error:</span> Could not reach Azure OpenAI.`);
+        } finally {
+            input.disabled = false;
+            input.focus();
+        }
+    }
+
+    function processCommand(rawCmd) {
+        if (!rawCmd) return;
+        if (isAiMode) {
+            handleAiChat(rawCmd);
+            return;
+        }
+
+        const [cmd, ...args] = rawCmd.split(' ');
+        const arg = args.join(' ').trim();
+
+        // --- UPDATED PROMPT LINE ---
+        const promptDir = currentDir.replace('/home/nandanv76/portfolio', 'portfolio');
+        appendToHistory(
+            `<span class="text-primary">nandanv76@${promptDir}</span>:~$ ${rawCmd}`
+        );
+        // ----------------------------
+
+        const fn = commands[cmd];
+        let output;
+        if (typeof fn === 'function') {
+            output = fn(arg);
+        } else if (fn) {
+            output = fn;
+        } else {
+            output = `Command not found: ${cmd}. Type 'help' for a list of commands.`;
+        }
+
+        if (output !== undefined && output !== null && output !== '') appendToHistory(output);
+
+        if (rawCmd && cmd !== 'clear') commandHistory.unshift(rawCmd);
+        historyIndex = -1;
+        input.value = '';
+    }
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            processCommand(input.value.trim());
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (isAiMode) {
+                if (aiHistoryIndex < aiCommandHistory.length - 1) {
+                    aiHistoryIndex++;
+                    input.value = aiCommandHistory[aiHistoryIndex];
+                    terminal.scrollTo({ top: terminal.scrollHeight, behavior: 'smooth' });
+                }
+            } else {
+                if (historyIndex < commandHistory.length - 1) {
+                    historyIndex++;
+                    input.value = commandHistory[historyIndex];
+                    terminal.scrollTo({ top: terminal.scrollHeight, behavior: 'smooth' });
+                }
+            }
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (isAiMode) {
+                if (aiHistoryIndex > 0) {
+                    aiHistoryIndex--;
+                    input.value = aiCommandHistory[aiHistoryIndex];
+                } else {
+                    aiHistoryIndex = -1;
+                    input.value = '';
+                }
+                terminal.scrollTo({ top: terminal.scrollHeight, behavior: 'smooth' });
+            } else {
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    input.value = commandHistory[historyIndex];
+                } else {
+                    historyIndex = -1;
+                    input.value = '';
+                }
+                terminal.scrollTo({ top: terminal.scrollHeight, behavior: 'smooth' });
+            }
+        }
+    });
+
+    appendToHistory(welcomeMessage);
+</script>
+
+
+<style>
+    /* Use :focus to ensure the style applies any time the input is active */
+    #terminal-input:focus {
+        outline: none;
+        caret-shape: block;
+        caret-color: white;
+        animation: blink 1s step-end infinite;
+    }
+
+    @keyframes cursor-blink {
+        0%, 49.9% { opacity: 1; }
+        50%, 100% { opacity: 0; }
+    }
+</style>

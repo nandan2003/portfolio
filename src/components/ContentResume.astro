@@ -1,0 +1,138 @@
+---
+import { Code } from "astro:components";
+const code = `Resume: {
+    name: Nandan Vallamdasu,
+    region: Hyderabad, India,
+    signature: AI Engineer | Automation | Applied Research
+};
+
+Education: {
+     degree: Bachelor of Technology in Computer Science and Engineering,
+     institution: Malla Reddy Institute of Technology and Science,
+    duration: 2020 - 2024,
+    majors: Data Structures, OS, DBMS, Cloud Computing, AI & ML, C/C++
+};
+
+Certifications: [
+    • Google Data Analytics Professional Certificate,
+    • Microsoft Certified: Azure Data Fundamentals (DP-900),
+    • Microsoft Applied Skills: Build a NLP Solution with Azure AI Language,
+    • CS50x: Introduction to Computer Science (Harvard University),
+    • SQL (Advanced) - HackerRank
+];
+
+// # Projects
+const Projects: [
+    {
+        name: Azure Databricks Formula 1 Analytics;
+        description: Developed an end-to-end data engineering pipeline analyzing F1 driver and team 
+        performance, processing incremental race data through Azure Data Factory and Databricks, and 
+        visualizing insights via Power BI;
+        techStack: [Azure Databricks, Data Factory, Azure Data Lake Gen2, Python, SQL, Power BI]
+    },
+    {
+        name: Microsoft Fabric Bing API Sentiment Analysis;
+        description: Built a real-time sentiment analysis system using Bing News API and Microsoft 
+        Fabric, automating Teams alerts for positive sentiment and visualizing news trends daily 
+        in Power BI;
+        techStack: [Fabric Data Factory, Bing API, Python, Synapse Analytics, Data Activator, 
+        Delta Lake, Power BI]
+    }
+];
+
+// #2 Experience
+    organization: Freelance Automation & Data Projects,
+    location: Remote,
+    title: Automation & Data Engineer,
+    duration: 2023 - Present,
+    achievements: [
+        • Developed workflow automation systems using n8n & Power Automate to streamline repetitive 
+        business processes.
+
+        • Designed and deployed Azure-based ETL pipelines integrating Databricks, Synapse, and Power 
+        BI for analytics visualization.
+
+        • Created intelligent dashboards and news sentiment models using Bing API and Fabric Data 
+        Factory.
+    ],
+
+    organization: Prudent Autolytics,
+    location: Bengaluru (Remote),
+    title: Intern - RPA Developer,
+    duration: Jul-2025 - Aug-2025,
+    achievements: [
+        • Developed a PowerApps-based timesheet management system from scratch, improving internal 
+        task tracking efficiency.
+
+        • Automated Excel-based data workflows using Python scripts, reducing manual processing time.
+
+        • Built and deployed multiple mini-process automations using Microsoft Power Automate.
+    ]
+};
+
+// # Leadership / Extracurricular
+Leadership: [
+    • Organized 5+ large-scale technical events at Microsoft IDC with 200+ participants and 20+ 
+    volunteers.
+
+    • Facilitated collaboration across students, mentors, and industry speakers on topics like AI, 
+    Data Science, and Cloud Computing.
+    
+    • Delivered sessions on practical applications of Azure and Power Platform in solving real-world 
+    business problems.
+    
+    • Volunteered as a guest coordinator for the Isha Insight program, engaging with business leaders 
+    including the Ex-Chairman of ISRO and CBO of Mahindra Holidays.
+    
+    • Contributed to Isha Insight program success through meticulous coordination, hospitality 
+    management, and cross-team collaboration.
+];
+
+// #4 Skills
+Skills: {
+    technical: [
+        Python, SQL, Azure Databricks, Data Factory, Synapse Analytics,
+        Fabric Data Factory, Power BI, n8n, Power Automate, Azure AI,
+        Entra ID, RBAC, PaaS, Dataverse, HTML, DevOps, DSA
+    ],
+    soft: [
+        Team Management, Leadership, Communication, Problem Solving,
+        Collaboration, Critical Thinking, Stakeholder Management, Attention to Detail
+    ]
+};
+
+// #5 Interests
+Interests: Data, AI, Automation, Cloud, Research, Innovation, and a bit of chaos;`;
+
+---
+
+<Code 
+    code={code} 
+    lang="js" 
+    wrap={true} 
+/>
+
+<style is:global>
+
+    /* Custom styling for code block line numbers */
+    pre.astro-code {
+        @apply bg-transparent text-sm !important;
+    }
+
+    pre.astro-code code {
+        @apply block;
+        counter-reset: step;
+        counter-increment: step 0;
+    }
+
+    pre.astro-code code .line {
+        @apply relative;
+    }
+
+    pre.astro-code code .line::before {
+        content: counter(step);
+        counter-increment: step;
+        @apply text-gray-600 pr-2;
+    }
+
+</style>

@@ -1,0 +1,89 @@
+---
+import { Code } from 'astro:components';
+
+const code = `Developer {
+    name: Nandan Vallamdasu;
+    skills: Routing boring to AI, brilliant to brains;
+    interests: Research, innovation, & calculated madness ;
+};
+
+interface TechStack {
+     devOps: Docker, Azure DevOps, GitHub Actions, n8n;
+     data: Azure Databricks, Data Factory, Python, SQL, Power BI;
+    ai: LangChain, Azure AI Foundry, Vector Databases, NLP, Sentiment Analysis;
+    explorationZone: Figma, MLOps, RAG, Vector Intelligence, AI Security & Ethics;
+    humanOps: Collaboration, Communication, Problem Solving, and the usual chaos control;
+};
+
+const craft = {
+    coreFocus: [
+        • Integrating LLMs and AI agents into real-world operations,
+        • Optimizing model performance and cloud efficiency,
+        • Designing scalable AI workflows and data architectures,
+        • Building intelligent automation for data-driven decisions,
+        • Following AI research and innovations from DeepMind, OpenAI, etc.
+    ],
+    currentStack: ['Azure', 'Databricks', 'Python', 'LangChain', 'n8n']
+};
+
+const exploration = {
+    nowLearning: ['RAG Pipelines', 'AI Agentic Systems', 'Cognitive Orchestration'],
+    goal: 'Teaching AI to reason, automate, and collaborate instead of just predict.'
+};
+
+const engagement = {
+    availability: 'Open to collaborations in AI engineering, data automation, and research-driven systems.',
+    funFact: 'When not debugging data pipelines, I'm probably deep in a sci-fi binge, overanalyzing movie logic, or reading papers I only half understand.'
+};
+
+// Contact function
+const contact = (type: ContactType): string => {
+    switch (type) {
+        case 'github':
+            return 'https://github.com/nandan2003';
+        case 'twitter':
+            return 'https://x.com/NandanV76';
+        case 'linkedIn':
+            return 'https://www.linkedin.com/in/nandan-vallamdasu';
+        case 'instagram':
+            return 'https://www.instagram.com/nandan_vallamdasu';
+        case 'email':
+            return 'nandan.vallamdasu@zohomail.in';
+        default:
+            return 'Send fax.';
+    }
+};
+
+`;
+---
+
+<Code
+    code={code}
+    lang="js"
+    wrap={true}
+/>
+
+<style is:global>
+
+    /* Custom styling for code block line numbers */
+    pre.astro-code {
+        @apply bg-transparent text-sm !important;
+    }
+
+    pre.astro-code code {
+        @apply block;
+        counter-reset: step;
+        counter-increment: step 0;
+    }
+
+    pre.astro-code code .line {
+        @apply relative;
+    }
+
+    pre.astro-code code .line::before {
+        content: counter(step);
+        counter-increment: step;
+        @apply text-gray-600 pr-3;
+    }
+
+</style>
