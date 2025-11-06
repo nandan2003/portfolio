@@ -12,7 +12,7 @@
     "dependencies": {
         "@astrojs/check": "^0.9.5",
         "@astrojs/react": "^4.4.1",
-        "@astrojs/vercel": "^8.2.11",
+        "@astrojs/vercel": "^9.0.0",
         "@azure/identity": "latest",
         "@types/react": "^19.2.2",
         "@types/react-dom": "^19.2.2",
