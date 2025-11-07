@@ -4,12 +4,13 @@ import tailwind from '@astrojs/tailwind';
 import compress from 'astro-compress';
 import sitemap from '@astrojs/sitemap';
 
+import vercel from '@astrojs/vercel/serverless';
+
 import react from '@astrojs/react';
 
 export default defineConfig({
     output: 'server',
-    trailingSlash: 'always',
-    site: 'https://nandanv76.vercel.app', // <-- Replace with your actual domain
+    adapter: vercel(),
 
     // Single page, no prefetch needed
     prefetch: false,
