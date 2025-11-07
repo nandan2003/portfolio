@@ -1,6 +1,8 @@
 ---
 import '../styles/global.scss';
 import SpeedInsights from '@vercel/speed-insights/astro';
+import Analytics from '@vercel/analytics/astro';
+
 const { title, description } = Astro.props;
 
 // Base domain URL without trailing slash
@@ -123,6 +125,8 @@ const dublinCore = {
         <meta name="description" content={seoDescription}>
         <meta name="abstract"    content={seoDescription}>
         <meta name="keywords"    content={seoKeywords}>
+
+        <Analytics />
 
     </head>
 

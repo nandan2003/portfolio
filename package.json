@@ -16,6 +16,7 @@
         "@azure/identity": "latest",
         "@types/react": "^19.2.2",
         "@types/react-dom": "^19.2.2",
+        "@vercel/analytics": "^1.5.0",
         "@vercel/speed-insights": "^1.2.0",
         "astro": "^5.15.3",
         "microsoft-cognitiveservices-speech-sdk": "^1.46.0",
