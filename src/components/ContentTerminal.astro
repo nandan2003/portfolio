@@ -197,11 +197,14 @@ const skills = `
         fastfetch: () => {
             const banner = `
         <span class="text-amber-400">                                                                                                                     
-    mm   m                   #                       m    m        ""#    ""#                      #                             
-    #"m  #  mmm   m mm    mmm#   mmm   m mm          "m  m"  mmm     #      #     mmm   mmmmm   mmm#   mmm    mmm   m   m        
-    # #m # "   #  #"  #  #" "#  "   #  #"  #          #  #  "   #    #      #    "   #  # # #  #" "#  "   #  #   "  #   #        
-    #  # # m"""#  #   #  #   #  m"""#  #   #          "mm"  m"""#    #      #    m"""#  # # #  #   #  m"""#   """m  #   #        
-    #   ## "mm"#  #   #  "#m##  "mm"#  #   #           ##   "mm"#    "mm    "mm  "mm"#  # # #  "#m##  "mm"#  "mmm"  "mm"#        
+            ░███    ░██                              ░██                       
+            ░████   ░██                              ░██                       
+            ░██░██  ░██  ░██████   ░████████   ░████████  ░██████   ░████████  
+            ░██ ░██ ░██       ░██  ░██    ░██ ░██    ░██       ░██  ░██    ░██ 
+            ░██  ░██░██  ░███████  ░██    ░██ ░██    ░██  ░███████  ░██    ░██ 
+            ░██   ░████ ░██   ░██  ░██    ░██ ░██   ░███ ░██   ░██  ░██    ░██ 
+            ░██    ░███  ░█████░██ ░██    ░██  ░█████░██  ░█████░██ ░██    ░██ 
+                                                        
         </span>`
 
             const info = `
@@ -212,19 +215,19 @@ const skills = `
                 <span class="text-cyan-400">Uptime:</span>        3 hours, 42 mins
                 <span class="text-cyan-400">Packages:</span>      1287 (simulated)
                 <span class="text-cyan-400">Shell:</span>         yukthi-terminal v2.1
-                <span class="text-cyan-400">Resolution:</span>    1920x1080
+                <span class="text-cyan-400">Resolution:</span>    3840x2160
                 <span class="text-cyan-400">DE:</span>            Astro Desktop
                 <span class="text-cyan-400">Theme:</span>         Monokai [Dark]
                 <span class="text-cyan-400">CPU:</span>           AMD Ryzen 7 (8) @ 3.80GHz
-                <span class="text-cyan-400">GPU:</span>           NVIDIA RTX 3060
+                <span class="text-cyan-400">GPU:</span>           NVIDIA RTX 4060
                 <span class="text-cyan-400">Memory:</span>        7.9 GiB / 16 GiB
         `;
 
             return `
-                <pre class="font-mono leading-none m-0 p-0">${banner}</pre>
-                <div class="flex flex-row font-mono items-start m-0 p-0 gap-2">
-                <pre class="leading-none text-gray-300 m-0 p-0">${info}</pre>
-        </div>`;
+                <div class="flex flex-col">
+                    <pre class="font-mono leading-none m-0 p-0 whitespace-pre-wrap">${banner}</pre>
+                    <pre class="leading-tight text-gray-300 m-0 p-0 mt-2">${info}</pre>
+                </div>`;
         },
 
         tree: () => {
