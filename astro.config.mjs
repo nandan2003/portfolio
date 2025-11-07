@@ -7,7 +7,7 @@ import sitemap from '@astrojs/sitemap';
 import react from '@astrojs/react';
 
 export default defineConfig({
-    output: 'static',
+    output: 'server',
     trailingSlash: 'always',
     site: 'https://nandanv76.vercel.app', // <-- Replace with your actual domain
 
