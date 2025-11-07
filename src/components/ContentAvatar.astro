@@ -3,13 +3,15 @@
 import constructionImage from '../assets/under_construction.png';
 ---
 
-<div class="w-full h-full flex grow justify-center items-center p-4">
-    
-    <img 
-      src={constructionImage.src} 
-      width={constructionImage.width}
-      height={constructionImage.height}
-      alt="Under Construction" 
-      class="max-w-md max-h-[500px] w-full h-auto object-contain" 
-    />
+<div class="w-full h-full flex flex-col justify-center items-center p-4">
+  <img
+    src={constructionImage.src}
+    width={constructionImage.width}
+    height={constructionImage.height}
+    alt="Under Construction"
+    class="max-w-md max-h-[500px] w-full h-auto object-contain"
+  />
+  <p class="text-red-500 text-2xl font-serif italic tracking-wider mt-6">
+    Under Development
+  </p>
 </div>
