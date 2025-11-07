@@ -6,13 +6,10 @@ import sitemap from '@astrojs/sitemap';
 
 import react from '@astrojs/react';
 
-import { defineConfig } from 'astro/config';
-import vercel from '@astrojs/vercel/serverless';
-
 export default defineConfig({
-    output: 'server',    // must not be "hybrid" or "static"
-    adapter: vercel(),
- // <-- Replace with your actual domain
+    output: 'static',
+    trailingSlash: 'always',
+    site: 'https://nandanv76.vercel.app', // <-- Replace with your actual domain
 
     // Single page, no prefetch needed
     prefetch: false,
