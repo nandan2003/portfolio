@@ -1,0 +1,862 @@
+<div id="swarm-game-wrapper">
+  <div id="swarm-game-container"></div>
+</div>
+
+<style>
+  /* This wrapper holds the game */
+  #swarm-game-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #111;
+  }
+
+  /* This container is the parent for the canvas */
+  #swarm-game-container {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  /* Use :global() to target the p5.js <canvas> */
+  :global(#swarm-game-container > canvas) {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    box-shadow: 0 0 20px #000;
+  }
+</style>
+
+<script is:inline>
+window.swarmSketch = (p) => {
+
+  // --- Game Configuration ---
+  const GAME_WIDTH = 800;
+  const GAME_HEIGHT = 600;
+  const PLAYER_COLOR = '#00FFFF';
+  const PLAYER_VISUAL_SIZE = 25;
+  const PLAYER_HITBOX_SIZE = 40;
+  const LIGHT_PARTICLE_COLOR = '#FFFF00';
+  const LIGHT_PARTICLE_SIZE = 7;
+  const LIGHT_PARTICLE_SPAWN_RATE = 30;
+  const ENEMY_COLOR = '#FF0000';
+  const ENEMY_SIZE = 15;
+  let enemySpawnRate = 300;
+  const ENEMY_SPEED = 1;
+  const ALPHA_ENEMY_COLOR = '#8B0000';
+  const ALPHA_ENEMY_SIZE = 30;
+  const ALPHA_ENEMY_SPEED = 0.5;
+  const ALPHA_ENEMY_HEALTH = 5;
+  const ALPHA_SPAWN_RATE = 300;
+  const DEFENDER_COLOR = '#00FF00';
+  const DEFENDER_SIZE = 10;
+  const DEFENDER_MAX_SPEED = 3;
+  const DEFENDER_MAX_FORCE = 0.1;
+  const DEFENDER_SIGHT_RADIUS = 75;
+  const DEFENDER_ATTACK_RADIUS = 150;
+  const DEFENDER_PATROL_RADIUS = 75;
+  
+  // --- Game State Variables ---
+  let gameState = 'START';
+  let lightParticles, explosionParticles, enemies, alphaEnemies, defenders;
+  let lightCollected, gameTimer;
+  let gameOver, gameWon;
+  let hasSpawnedAlpha1, hasSpawnedAlpha2;
+  let debugMode = true; // Set to false by default
+
+  let startButtonRect;
+  let restartButtonRect;
+  let backButtonRect;
+
+  p.setup = function() {
+    let canvas = p.createCanvas(GAME_WIDTH, GAME_HEIGHT);
+    canvas.parent('swarm-game-container');
+
+    p.angleMode(p.DEGREES);
+    p.textFont('monospace');
+    
+    let btnW = 200;
+    let btnH = 50;
+    let btnX = GAME_WIDTH / 2 - btnW / 2;
+
+    startButtonRect = { x: btnX, y: 500, w: btnW, h: btnH };
+    restartButtonRect = { 
+      x: btnX,
+      y: GAME_HEIGHT / 2 + 50,
+      w: btnW,
+      h: btnH,
+    };
+    backButtonRect = { x: 20, y: 20, w: 100, h: 40 };
+    
+    resetGame();
+    gameState = 'START';
+  }
+
+  function resetGame() {
+    lightParticles = [];
+    explosionParticles = [];
+    enemies = [];
+    alphaEnemies = [];
+    defenders = [];
+    lightCollected = 0;
+    gameTimer = 90;
+    gameOver = false;
+    gameWon = false;
+    hasSpawnedAlpha1 = false;
+    hasSpawnedAlpha2 = false;
+    p.noCursor();
+  }
+
+  p.draw = function() {
+    if (gameState === 'START') {
+      drawStartScreen();
+    } else if (gameState === 'PLAYING') {
+      runGameLoop();
+    } else if (gameState === 'END') {
+      drawGameOver();
+    }
+  }
+
+  function runGameLoop() {
+    p.background(10, 10, 20, 150);
+    gameTimer -= p.deltaTime / 1000;
+    updateDynamicDifficulty();
+    
+    if (gameTimer <= 0) {
+      gameTimer = 0;
+      gameWon = true;
+      gameOver = true;
+      gameState = 'END';
+    }
+
+    if (p.frameCount % LIGHT_PARTICLE_SPAWN_RATE === 0) {
+      spawnLightParticle();
+    }
+    if (p.frameCount % p.floor(enemySpawnRate) === 0) {
+      spawnSeeker();
+    }
+
+    manageLightParticles();
+    manageExplosionParticles();
+    manageDefenders();
+    manageSeekers();
+    manageAlphaSeekers();
+    drawPlayer();
+    drawUI();
+  }
+  
+  function drawBackButton() {
+    p.push(); 
+    p.rectMode(p.CORNER);
+    p.fill(100, 100, 100, 150);
+    p.stroke(255);
+    p.strokeWeight(1);
+    p.rect(backButtonRect.x, backButtonRect.y, backButtonRect.w, backButtonRect.h, 5);
+    
+    p.fill(255);
+    p.noStroke();
+    p.textSize(18);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.text('← MENU', backButtonRect.x + backButtonRect.w / 2, backButtonRect.y + backButtonRect.h / 2);
+    p.pop(); 
+  }
+
+  function drawStartScreen() {
+    p.background(10, 10, 20);
+    p.cursor(p.ARROW); 
+    drawBackButton();
+    
+    const centerX = GAME_WIDTH / 2;
+    
+    // Set text alignment ONCE. All text will be centered.
+    p.textAlign(p.CENTER, p.CENTER);
+
+    // --- Title ---
+    p.fill(PLAYER_COLOR);
+    p.textSize(50);
+    p.text('SYMBIOTIC SWARM', centerX, 100);
+
+    // --- Subtitle ---
+    p.fill(200);
+    p.textSize(18);
+    p.text('A 90-Second Swarm AI Experiment', centerX, 160);
+    
+    // --- Goal ---
+    p.fill(255);
+    p.textSize(28);
+    p.text('Survive for 90 seconds to win!', centerX, 240);
+
+    // --- INSTRUCTIONS (Hardcoded Y-positions) ---
+    p.fill(200);
+    p.textSize(20);
+    
+    p.text('Mouse to Move Core', centerX, 320);
+    p.text('Collect Yellow Light', centerX, 350);
+    p.text('Left-Click to Spawn Defenders', centerX, 380);
+    
+    // --- AI HINT (Hardcoded Y-positions) ---
+    p.fill(DEFENDER_COLOR);
+    p.textSize(22);
+    
+    p.text('Your defenders think for themselves', centerX, 430);
+    p.text('(with small AI brain 😉).', centerX, 460);
+    
+    // --- Start Button ---
+    // The button's Y-position is set to 500 in your p.setup()
+    // This leaves a clean 40px gap between the text and the button.
+    p.fill(0, 255, 0, 150);
+    p.stroke(255);
+    p.strokeWeight(2);
+    p.rectMode(p.CORNER);
+    p.rect(
+      startButtonRect.x,
+      startButtonRect.y, // This MUST be 500
+      startButtonRect.w,
+      startButtonRect.h,
+      10
+    );
+    p.fill(255);
+    p.noStroke();
+    p.textSize(30);
+    p.textAlign(p.CENTER, p.CENTER); // Already set, but good to be sure
+    p.text(
+      'START',
+      startButtonRect.x + startButtonRect.w / 2,
+      startButtonRect.y + startButtonRect.h / 2
+    );
+  }
+
+  p.mouseClicked = function() {
+    if (gameState === 'START' || gameState === 'END') {
+      if (
+        p.mouseX > backButtonRect.x &&
+        p.mouseX < backButtonRect.x + backButtonRect.w &&
+        p.mouseY > backButtonRect.y &&
+        p.mouseY < backButtonRect.y + backButtonRect.h
+      ) {
+        window.showGameMenu(); 
+        return; 
+      }
+    }
+    
+    if (gameState === 'START') {
+      if (
+        p.mouseX > startButtonRect.x &&
+        p.mouseX < startButtonRect.x + startButtonRect.w &&
+        p.mouseY > startButtonRect.y &&
+        p.mouseY < startButtonRect.y + startButtonRect.h
+      ) {
+        resetGame();
+        gameState = 'PLAYING';
+      }
+    } else if (gameState === 'PLAYING') {
+      if (p.mouseButton === p.LEFT) {
+        let cost = getDefenderCost();
+        if (lightCollected >= cost) {
+          lightCollected -= cost;
+          let newDefender = new Defender(p.mouseX, p.mouseY);
+          defenders.push(newDefender);
+        }
+      }
+    } else if (gameState === 'END') {
+      if (
+        p.mouseX > restartButtonRect.x &&
+        p.mouseX < restartButtonRect.x + restartButtonRect.w &&
+        p.mouseY > restartButtonRect.y &&
+        p.mouseY < restartButtonRect.y + restartButtonRect.h
+      ) {
+        resetGame();
+        gameState = 'PLAYING';
+      }
+    }
+  }
+
+  function updateDynamicDifficulty() {
+    if (gameTimer > 60) {
+      enemySpawnRate = 300;
+    } else if (gameTimer > 30) {
+      enemySpawnRate = 240;
+      if (!hasSpawnedAlpha1) {
+        spawnAlphaSeeker();
+        hasSpawnedAlpha1 = true;
+      }
+    } else {
+      enemySpawnRate = 180;
+      if (!hasSpawnedAlpha2) {
+        spawnAlphaSeeker();
+        hasSpawnedAlpha2 = true;
+      }
+    }
+  }
+
+  function getDefenderCost() {
+    if (defenders.length < 5) {
+      return 10;
+    } else if (defenders.length < 10) {
+      return 25;
+    } else {
+      return 50;
+    }
+  }
+
+  function drawPlayer() {
+    let playerX = p.mouseX;
+    let playerY = p.mouseY;
+    p.fill(0, 255, 255, 60);
+    p.noStroke();
+    p.circle(playerX, playerY, PLAYER_VISUAL_SIZE * 2.2);
+    p.fill(PLAYER_COLOR);
+    p.stroke(200, 255, 255);
+    p.strokeWeight(3);
+    p.circle(playerX, playerY, PLAYER_VISUAL_SIZE);
+  }
+
+  function spawnLightParticle() {
+    let particle = {
+      x: p.random(20, GAME_WIDTH - 20),
+      y: p.random(20, GAME_HEIGHT - 20),
+    };
+    lightParticles.push(particle);
+  }
+
+  function manageLightParticles() {
+    for (let i = lightParticles.length - 1; i >= 0; i--) {
+      let pt = lightParticles[i];
+      p.fill(LIGHT_PARTICLE_COLOR + '99');
+      p.noStroke();
+      p.circle(pt.x, pt.y, LIGHT_PARTICLE_SIZE * 2);
+      p.fill(LIGHT_PARTICLE_COLOR);
+      p.stroke(255, 255, 200);
+      p.strokeWeight(1);
+      p.circle(pt.x, pt.y, LIGHT_PARTICLE_SIZE);
+      let distance = p.dist(p.mouseX, p.mouseY, pt.x, pt.y);
+      if (distance < PLAYER_HITBOX_SIZE / 2 + LIGHT_PARTICLE_SIZE / 2) {
+        lightCollected++;
+        lightParticles.splice(i, 1);
+      }
+    }
+  }
+
+  function drawUI() {
+    p.textSize(19);
+    p.noStroke();
+    p.fill(0, 0, 0, 100);
+    p.rectMode(p.CORNER);
+    p.rect(5, 5, 270, 70);
+    p.rect(GAME_WIDTH / 2 - 100, 5, 200, 40);
+    p.textAlign(p.LEFT, p.TOP);
+    let cost = getDefenderCost();
+    p.fill(LIGHT_PARTICLE_COLOR);
+    p.text('Light: ' + lightCollected, 15, 15);
+    p.fill(DEFENDER_COLOR);
+    p.text('Defender Cost: ' + cost, 15, 45);
+    p.textAlign(p.CENTER, p.TOP);
+    p.fill(255);
+    p.text('Survive: ' + p.nfc(gameTimer, 1), GAME_WIDTH / 2, 15);
+  }
+
+  function drawGameOver() {
+    p.background(10, 10, 20);
+    p.cursor(p.ARROW);
+    drawBackButton();
+
+    p.noStroke();
+    p.textAlign(p.CENTER, p.CENTER);
+    p.textFont('monospace');
+    
+    if (gameWon) {
+      p.fill(0, 255, 0);
+      p.textSize(60);
+      p.text('YOU SURVIVED!', GAME_WIDTH / 2, GAME_HEIGHT / 2 - 50);
+    } else {
+      p.fill(255, 0, 0);
+      p.textSize(60);
+      p.text('GAME OVER', GAME_WIDTH / 2, GAME_HEIGHT / 2 - 50);
+    }
+
+    p.fill(0, 150, 255, 150);
+    p.stroke(255);
+    p.strokeWeight(2);
+    p.rectMode(p.CORNER);
+    p.rect(
+      restartButtonRect.x,
+      restartButtonRect.y,
+      restartButtonRect.w,
+      restartButtonRect.h,
+      10
+    );
+    p.fill(255);
+    p.noStroke();
+    p.textSize(30);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.text(
+      'RESTART',
+      restartButtonRect.x + restartButtonRect.w / 2,
+      restartButtonRect.y + restartButtonRect.h / 2
+    );
+  }
+
+  function manageSeekers() {
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      let e = enemies[i];
+      let dirX = p.mouseX - e.x;
+      let dirY = p.mouseY - e.y;
+      let magnitude = p.mag(dirX, dirY);
+      if (magnitude > 0) {
+        dirX /= magnitude;
+        dirY /= magnitude;
+      }
+      e.x += dirX * ENEMY_SPEED;
+      e.y += dirY * ENEMY_SPEED;
+      p.fill(ENEMY_COLOR + '99');
+      p.noStroke();
+      p.circle(e.x, e.y, ENEMY_SIZE * 2);
+      p.fill(ENEMY_COLOR);
+      p.stroke(255, 100, 100);
+      p.strokeWeight(2);
+      p.circle(e.x, e.y, ENEMY_SIZE);
+
+      let distanceToPlayer = p.dist(p.mouseX, p.mouseY, e.x, e.y);
+      if (distanceToPlayer < PLAYER_VISUAL_SIZE / 2 + ENEMY_SIZE / 2) {
+        gameOver = true;
+        gameWon = false;
+        gameState = 'END';
+      }
+
+      for (let j = defenders.length - 1; j >= 0; j--) {
+        let d = defenders[j];
+        let distanceToDefender = p.dist(e.x, e.y, d.position.x, d.position.y);
+        if (distanceToDefender < d.size / 2 + ENEMY_SIZE / 2) {
+          createExplosion(e.x, e.y, [ENEMY_COLOR, d.color]);
+          enemies.splice(i, 1);
+          defenders.splice(j, 1);
+          break;
+        }
+      }
+    }
+  }
+
+  function spawnSeeker() {
+    let x, y;
+    let side = p.floor(p.random(4));
+    if (side === 0) {
+      x = p.random(GAME_WIDTH);
+      y = -ENEMY_SIZE;
+    } else if (side === 1) {
+      x = GAME_WIDTH + ENEMY_SIZE;
+      y = p.random(GAME_HEIGHT);
+    } else if (side === 2) {
+      x = p.random(GAME_WIDTH);
+      y = GAME_HEIGHT + ENEMY_SIZE;
+    } else {
+      x = -ENEMY_SIZE;
+      y = p.random(GAME_HEIGHT);
+    }
+    let enemy = { x: x, y: y };
+    enemies.push(enemy);
+  }
+
+  function spawnAlphaSeeker() {
+    let x, y;
+    let side = p.floor(p.random(4));
+    if (side === 0) {
+      x = p.random(GAME_WIDTH);
+      y = -ALPHA_ENEMY_SIZE;
+    } else if (side === 1) {
+      x = GAME_WIDTH + ALPHA_ENEMY_SIZE;
+      y = p.random(GAME_HEIGHT);
+    } else if (side === 2) {
+      x = p.random(GAME_WIDTH);
+      y = GAME_HEIGHT + ALPHA_ENEMY_SIZE;
+    } else {
+      x = -ALPHA_ENEMY_SIZE;
+      y = p.random(GAME_HEIGHT);
+    }
+    alphaEnemies.push(new AlphaSeeker(x, y));
+  }
+
+  function manageAlphaSeekers() {
+    for (let i = alphaEnemies.length - 1; i >= 0; i--) {
+      let alpha = alphaEnemies[i];
+      alpha.run(enemies);
+      for (let j = defenders.length - 1; j >= 0; j--) {
+        let d = defenders[j];
+        let distance = p.dist(
+          alpha.position.x,
+          alpha.position.y,
+          d.position.x,
+          d.position.y
+        );
+        if (distance < alpha.size / 2 + d.size / 2) {
+          alpha.health--;
+          createExplosion(d.position.x, d.position.y, [d.color]);
+          defenders.splice(j, 1);
+          if (alpha.health <= 0) {
+            createExplosion(alpha.position.x, alpha.position.y, [
+              ALPHA_ENEMY_COLOR,
+              DEFENDER_COLOR,
+            ]);
+            alphaEnemies.splice(i, 1);
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  function createExplosion(x, y, colors) {
+    for (let i = 0; i < 20; i++) {
+      let col = p.random(colors);
+      explosionParticles.push(new Particle(x, y, col));
+    }
+  }
+
+  function manageExplosionParticles() {
+    for (let i = explosionParticles.length - 1; i >= 0; i--) {
+      let pt = explosionParticles[i];
+      pt.update();
+      pt.draw();
+      if (pt.isDead()) {
+        explosionParticles.splice(i, 1);
+      }
+    }
+  }
+
+  class Particle {
+    constructor(x, y, color) {
+      this.position = p.createVector(x, y);
+      this.velocity = p5.Vector.random2D().mult(p.random(0.5, 3));
+      this.lifespan = 255;
+      this.color = color;
+    }
+    update() {
+      this.position.add(this.velocity);
+      this.lifespan -= 5;
+    }
+    draw() {
+      p.noStroke();
+      let c = p.color(this.color);
+      c.setAlpha(this.lifespan);
+      p.fill(c);
+      p.circle(this.position.x, this.position.y, 3);
+    }
+    isDead() {
+      return this.lifespan < 0;
+    }
+  }
+
+  class AlphaSeeker {
+    constructor(x, y) {
+      this.position = p.createVector(x, y);
+      this.velocity = p.createVector(0, 0);
+      this.acceleration = p.createVector(0, 0);
+      this.size = ALPHA_ENEMY_SIZE;
+      this.color = ALPHA_ENEMY_COLOR;
+      this.health = ALPHA_ENEMY_HEALTH;
+      this.spawnCooldown = ALPHA_SPAWN_RATE;
+      this.target = p.createVector(p.random(GAME_WIDTH), p.random(GAME_HEIGHT));
+      if (
+        p.dist(this.target.x, this.target.y, GAME_WIDTH / 2, GAME_HEIGHT / 2) <
+        300
+      ) {
+        this.target.add(p5.Vector.random2D().mult(200));
+      }
+    }
+    run(enemyArray) {
+      this.patrol();
+      this.spawn(enemyArray);
+      this.velocity.add(this.acceleration);
+      this.velocity.limit(ALPHA_ENEMY_SPEED);
+      this.position.add(this.velocity);
+      this.acceleration.mult(0);
+      this.draw();
+    }
+    patrol() {
+      let force = this.seek(this.target);
+      this.applyForce(force);
+      if (
+        p.dist(this.position.x, this.position.y, this.target.x, this.target.y) <
+        50
+      ) {
+        this.target = p.createVector(p.random(GAME_WIDTH), p.random(GAME_HEIGHT));
+      }
+    }
+    spawn(enemyArray) {
+      this.spawnCooldown--;
+      if (this.spawnCooldown <= 0) {
+        this.spawnCooldown = ALPHA_SPAWN_RATE;
+        let enemy = { x: this.position.x, y: this.position.y };
+        enemyArray.push(enemy);
+        createExplosion(this.position.x, this.position.y, [ENEMY_COLOR]);
+      }
+    }
+    draw() {
+      p.fill(this.color + '99');
+      p.noStroke();
+      p.circle(this.position.x, this.position.y, this.size * 2);
+      p.fill(this.color);
+      p.stroke(255, 100, 100);
+      p.strokeWeight(3);
+      p.circle(this.position.x, this.position.y, this.size);
+      p.noStroke();
+      p.fill(50, 50, 50);
+      p.rectMode(p.CENTER);
+      p.rect(this.position.x, this.position.y - this.size * 0.7, this.size, 5);
+      p.fill(255, 0, 0);
+      let healthWidth = p.map(this.health, 0, ALPHA_ENEMY_HEALTH, 0, this.size);
+      p.rectMode(p.CORNER);
+      p.rect(
+        this.position.x - this.size / 2,
+        this.position.y - this.size * 0.7 - 2.5,
+        healthWidth,
+        5
+      );
+      p.rectMode(p.CENTER);
+    }
+    seek(target) {
+      let desired = p5.Vector.sub(target, this.position);
+      desired.setMag(ALPHA_ENEMY_SPEED);
+      let steer = p5.Vector.sub(desired, this.velocity);
+      steer.limit(0.01);
+      return steer;
+    }
+    applyForce(force) {
+      this.acceleration.add(force);
+    }
+  }
+
+  function manageDefenders() {
+    for (let i = defenders.length - 1; i >= 0; i--) {
+      let d = defenders[i];
+      let playerPos = p.createVector(p.mouseX, p.mouseY);
+      d.run(defenders, enemies, alphaEnemies, playerPos, debugMode);
+    }
+  }
+
+  class Defender {
+    constructor(x, y) {
+      this.position = p.createVector(x, y);
+      this.velocity = p5.Vector.random2D();
+      this.acceleration = p.createVector(0, 0);
+      this.color = DEFENDER_COLOR;
+      this.size = DEFENDER_SIZE;
+      this.maxSpeed = DEFENDER_MAX_SPEED;
+      this.maxForce = DEFENDER_MAX_FORCE;
+      this.sightRadius = DEFENDER_SIGHT_RADIUS;
+      this.attackRadius = DEFENDER_ATTACK_RADIUS;
+      this.patrolRadius = DEFENDER_PATROL_RADIUS;
+      this.patrolAngle = p.random(360);
+    }
+    run(allDefenders, allEnemies, allAlphas, playerPos, debug) {
+      let target = this.findTarget(allEnemies, allAlphas);
+      this.calculateForces(allDefenders, playerPos, target);
+      this.update();
+      this.draw();
+      if (debug) {
+        this.drawDebug(allDefenders, target);
+      }
+    }
+    findTarget(allEnemies, allAlphas) {
+      let closestTarget = null;
+      let closestDist = Infinity;
+      for (let alpha of allAlphas) {
+        let d = p.dist(
+          this.position.x,
+          this.position.y,
+          alpha.position.x,
+          alpha.position.y
+        );
+        if (d < this.attackRadius && d < closestDist) {
+          closestDist = d;
+          closestTarget = alpha.position;
+        }
+      }
+      if (closestTarget === null) {
+        for (let enemy of allEnemies) {
+          let d = p.dist(this.position.x, this.position.y, enemy.x, enemy.y);
+          if (d < this.attackRadius && d < closestDist) {
+            closestDist = d;
+            closestTarget = p.createVector(enemy.x, enemy.y);
+          }
+        }
+      }
+      return closestTarget;
+    }
+    calculateForces(allDefenders, playerPos, targetEnemy) {
+      let sep = this.separate(allDefenders);
+      let ali = this.align(allDefenders);
+      let coh = this.cohesion(allDefenders);
+      sep.mult(2.0);
+      ali.mult(1.0);
+      coh.mult(1.0);
+      this.applyForce(sep);
+      this.applyForce(ali);
+      this.applyForce(coh);
+      if (targetEnemy) {
+        let attackForce = this.seek(targetEnemy);
+        attackForce.mult(3.0);
+        this.applyForce(attackForce);
+      } else {
+        let patrolForce = this.patrol(playerPos);
+        patrolForce.mult(1.0);
+        this.applyForce(patrolForce);
+        let guardForce = this.seek(playerPos);
+        guardForce.mult(0.8);
+        this.applyForce(guardForce);
+      }
+    }
+    update() {
+      this.velocity.add(this.acceleration);
+      this.velocity.limit(this.maxSpeed);
+      this.position.add(this.velocity);
+      this.acceleration.mult(0);
+    }
+    draw() {
+      p.fill(this.color + '99');
+      p.noStroke();
+      p.circle(this.position.x, this.position.y, this.size * 2);
+      p.fill(this.color);
+      p.stroke(200, 255, 200);
+      p.strokeWeight(2);
+      p.circle(this.position.x, this.position.y, this.size);
+    }
+    drawDebug(allDefenders, targetEnemy) {
+      p.noFill();
+      p.strokeWeight(1);
+      p.stroke(255, 255, 255, 40);
+      p.circle(this.position.x, this.position.y, this.attackRadius * 2);
+      p.stroke(255, 255, 255, 20);
+      p.circle(this.position.x, this.position.y, this.sightRadius * 2);
+      p.stroke(0, 255, 0, 30);
+      for (let other of allDefenders) {
+        let d = p.dist(
+          this.position.x,
+          this.position.y,
+          other.position.x,
+          other.position.y
+        );
+        if (d > 0 && d < this.sightRadius) {
+          p.line(
+            this.position.x,
+            this.position.y,
+            other.position.x,
+            other.position.y
+          );
+        }
+      }
+      if (targetEnemy) {
+        p.stroke(255, 0, 0, 150);
+        p.strokeWeight(2);
+        p.line(this.position.x, this.position.y, targetEnemy.x, targetEnemy.y);
+      }
+    }
+    patrol(playerPos) {
+      let patrolAngle = (p.frameCount * 2 + this.patrolAngle) % 360;
+      let patrolTarget = p.createVector(
+        playerPos.x + p.cos(patrolAngle) * this.patrolRadius,
+        playerPos.y + p.sin(patrolAngle) * this.patrolRadius
+      );
+      if (debugMode) {
+        p.fill(this.color + '50');
+        p.noStroke();
+        p.circle(patrolTarget.x, patrolTarget.y, 5);
+      }
+      return this.seek(patrolTarget);
+    }
+    seek(target) {
+      let desired = p5.Vector.sub(target, this.position);
+      desired.setMag(this.maxSpeed);
+      let steer = p5.Vector.sub(desired, this.velocity);
+      steer.limit(this.maxForce);
+      return steer;
+    }
+    separate(allDefenders) {
+      let desiredSeparation = this.size + 15;
+      let steer = p.createVector(0, 0);
+      let count = 0;
+      for (let other of allDefenders) {
+        let d = p.dist(
+          this.position.x,
+          this.position.y,
+          other.position.x,
+          other.position.y
+        );
+        if (d > 0 && d < desiredSeparation) {
+          let diff = p5.Vector.sub(this.position, other.position);
+          diff.normalize();
+          diff.div(d);
+          steer.add(diff);
+          count++;
+        }
+      }
+      if (count > 0) {
+        steer.div(count);
+      }
+      if (steer.mag() > 0) {
+        steer.setMag(this.maxSpeed);
+        steer.sub(this.velocity);
+        steer.limit(this.maxForce);
+      }
+      return steer;
+    }
+    align(allDefenders) {
+      let sum = p.createVector(0, 0);
+      let count = 0;
+      for (let other of allDefenders) {
+        let d = p.dist(
+          this.position.x,
+          this.position.y,
+          other.position.x,
+          other.position.y
+        );
+        if (d > 0 && d < this.sightRadius) {
+          sum.add(other.velocity);
+          count++;
+        }
+      }
+      if (count > 0) {
+        sum.div(count);
+        sum.setMag(this.maxSpeed);
+        let steer = p5.Vector.sub(sum, this.velocity);
+        steer.limit(this.maxForce);
+        return steer;
+      } else {
+        return p.createVector(0, 0);
+      }
+    }
+    cohesion(allDefenders) {
+      let sum = p.createVector(0, 0);
+      let count = 0;
+      for (let other of allDefenders) {
+        let d = p.dist(
+          this.position.x,
+          this.position.y,
+          other.position.x,
+          other.position.y
+        );
+        if (d > 0 && d < this.sightRadius) {
+          sum.add(other.position);
+          count++;
+        }
+      }
+      if (count > 0) {
+        sum.div(count);
+        return this.seek(sum);
+      } else {
+        return p.createVector(0, 0);
+      }
+    }
+    applyForce(force) {
+      this.acceleration.add(force);
+    }
+  }
+
+}; // ★★★ End of WRAPPER FUNCTION ★★★
+</script>

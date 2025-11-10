@@ -1,0 +1,560 @@
+<div id="guard-game-wrapper" class="game-component-wrapper">
+  <div id="guard-game-container"></div>
+</div>
+
+<style is:global>
+  /* We use the container ID to make sure these global rules
+    ONLY apply to the canvas inside this one game.
+  */
+  #guard-game-container > canvas {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important; /* This scales the game properly */
+    
+    /* This keeps the pixel art sharp */
+    image-rendering: pixelated !important;
+    image-rendering: -moz-crisp-edges !important;
+    image-rendering: crisp-edges !important;
+    box-shadow: 0 0 20px #000;
+  }
+</style>
+
+<script is:inline>
+// ★★★ WRAPPER FUNCTION ★★★
+window.guardSketch = (p) => {
+
+  // --- Game Constants ---
+  const TILE_SIZE = 40;
+  const GRID_WIDTH = 25; // Must be an ODD number
+  const GRID_HEIGHT = 21; // Must be an ODD number
+  const PLAYER_MOVE_FRAMES = 8;
+  const GUARD_MOVE_FRAMES = 25;
+
+  // --- Game State Constants ---
+  const STATE_START_SCREEN = 3;
+  const STATE_PLAYING = 0;
+  const STATE_CAUGHT = 1;
+  const STATE_WON = 2;
+  let gameState = STATE_START_SCREEN;
+  let isDebugMode = false;
+
+  // --- Map Definition ---
+  let gameMap;
+
+  // --- AI "Memory" ---
+  let heatmap;
+
+  // --- Game Objects ---
+  let player = { x: 1, y: 1 };
+  let goal = { x: 1, y: 1 };
+  let exit = { x: 1, y: 1 };
+  let guard = { x: 1, y: 1, direction: 'right' };
+  let guardPath = [];
+  let hasGoal = false;
+
+  // --- Pathfinding ---
+  let easystar;
+  let isAIInitialized = false; // ★★★ ADDED THIS LINE to fix guard
+  let lastPathRequest = 0;
+
+  // --- Stat Tracking ---
+  let startTime = 0;
+  let lastGameDuration = 0;
+  let guardMindChanges = 0;
+  let lastGuardMindChanges = 0;
+
+  // --- Image Variables ---
+  let imgFloor, imgWall, imgPlayer, imgGuard, imgGoal, imgExit;
+  
+  // --- Back Button ---
+  let backButtonRect;
+
+  p.preload = function() {
+    try {
+      // ★★★ Using your correct path ★★★
+      const imgPath = '/img/guard/';
+      imgFloor = p.loadImage(imgPath + "floor.png");
+      imgWall = p.loadImage(imgPath + "wall.png");
+      imgPlayer = p.loadImage(imgPath + "player.png");
+      imgGuard = p.loadImage(imgPath + "guard.png");
+      imgGoal = p.loadImage(imgPath + "goal.png");
+      imgExit = p.loadImage(imgPath + "exit.png");
+    } catch (e) {
+      console.error("Error loading images. Make sure all 6 .png files are in /public/img/guard/");
+      console.error(e);
+    }
+  }
+
+  p.setup = function() {
+    let canvas = p.createCanvas(GRID_WIDTH * TILE_SIZE, GRID_HEIGHT * TILE_SIZE);
+    canvas.parent('guard-game-container');
+    
+    // Define Back Button position
+    backButtonRect = { x: 10, y: 10, w: 90, h: 30 };
+    
+    // ★★★ REMOVED AI init from here to prevent crash ★★★
+
+    gameMap = generateMaze(GRID_WIDTH, GRID_HEIGHT);
+    addMazeLoops(gameMap, 30);
+    
+    // Set default positions (for drawing on start screen)
+    player.x = 1; player.y = 1;
+    guard.x = GRID_WIDTH - 2; guard.y = 1;
+    goal.x = 1; goal.y = GRID_HEIGHT - 2;
+    exit.x = GRID_WIDTH - 2; exit.y = GRID_HEIGHT - 2;
+  }
+
+  p.draw = function() {
+    
+    // --- 1. LOGIC UPDATES ---
+    if (gameState === STATE_PLAYING) {
+      
+      // ★★★ NEW BLOCK TO LOAD AI SAFELY ★★★
+      // This waits for EasyStar to be ready before init
+      if (!isAIInitialized && typeof EasyStar !== "undefined") {
+        initializeAI();
+      }
+      // ★★★ END OF NEW BLOCK ★★★
+
+      handlePlayerMovement();
+      if (easystar) { // This check will now pass
+        updateGuard();
+      }
+    }
+
+    // --- 2. DRAWING ---
+    drawMap();
+    if (!hasGoal) {
+      drawGoal();
+    }
+    drawExit();
+    if (easystar) { // This check will now pass
+      drawGuard();
+    }
+    drawPlayer();
+    
+    if (isDebugMode) {
+      drawHeatmap();
+    }
+    
+    // --- 3. DRAW UI OVERLAYS ---
+    if (gameState === STATE_START_SCREEN) {
+      drawStartScreen();
+    } else if (gameState === STATE_CAUGHT) {
+      drawEndScreen(false); // 'false' means didWin = false
+    } else if (gameState === STATE_WON) {
+      drawEndScreen(true); // 'true' means didWin = true
+    }
+    
+    // --- 4. CHECK FOR GAME OVER ---
+    if (gameState === STATE_PLAYING) {
+      if (player.x === guard.x && player.y === guard.y) {
+        gameState = STATE_CAUGHT;
+        captureGameStats();
+      }
+    }
+  }
+
+  // ★★★ NEW FUNCTION TO APPLY AI COSTS ★★★
+  function applyHeatmapCosts() {
+    if (easystar && heatmap) {
+      for (let y = 0; y < GRID_HEIGHT; y++) {
+        for (let x = 0; x < GRID_WIDTH; x++) {
+          if (gameMap[y][x] === 0) {
+            let cost = 1 + heatmap[y][x];
+            easystar.setTileCost(x, y, cost);
+          }
+        }
+      }
+    }
+  }
+
+  // ★★★ NEW FUNCTION TO SAFELY START THE AI ★★★
+  function initializeAI() {
+    if (isAIInitialized) return; // Don't run twice
+
+    console.log("EasyStar library detected. Initializing AI...");
+    easystar = new EasyStar.js();
+    easystar.setAcceptableTiles([0]);
+    easystar.setGrid(gameMap); // Set grid on first init
+    applyHeatmapCosts(); // Apply costs on first init
+    isAIInitialized = true;
+    console.log("Guard AI is now active!");
+  }
+
+  function drawBackButton() {
+    p.push();
+    p.rectMode(p.CORNER);
+    p.fill(50, 50, 50, 200);
+    p.stroke(255);
+    p.strokeWeight(2);
+    p.rect(backButtonRect.x, backButtonRect.y, backButtonRect.w, backButtonRect.h, 5);
+    
+    p.fill(255);
+    p.noStroke();
+    p.textSize(16);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.textFont('sans-serif'); // Use a clearer font
+    p.text('← MENU', backButtonRect.x + backButtonRect.w / 2, backButtonRect.y + backButtonRect.h / 2);
+    p.pop();
+  }
+
+  function handlePlayerMovement() {
+    if (p.frameCount % PLAYER_MOVE_FRAMES !== 0) {
+      return;
+    }
+
+    let targetX = player.x;
+    let targetY = player.y;
+
+    if (p.keyIsDown(p.UP_ARROW)) {
+      targetY -= 1;
+    } else if (p.keyIsDown(p.DOWN_ARROW)) {
+      targetY += 1;
+    } else if (p.keyIsDown(p.LEFT_ARROW)) {
+      targetX -= 1;
+    } else if (p.keyIsDown(p.RIGHT_ARROW)) {
+      targetX += 1;
+    } else {
+      return;
+    }
+
+    if (isWall(targetX, targetY) === false) {
+      player.x = targetX;
+      player.y = targetY;
+      
+      if (heatmap) {
+        heatmap[player.y][player.x] += 1;
+      }
+      
+      if (player.x === goal.x && player.y === goal.y) {
+        hasGoal = true;
+        console.log("Goal acquired!");
+      }
+      
+      if (player.x === exit.x && player.y === exit.y) {
+        if (hasGoal) {
+          gameState = STATE_WON;
+          captureGameStats();
+          console.log("You win!");
+        }
+      }
+    }
+  }
+
+  p.keyPressed = function() {
+    if (p.keyCode === 66) { // 'B' key
+      isDebugMode = !isDebugMode;
+      console.log("Debug mode:", isDebugMode);
+    }
+  }
+
+  p.mousePressed = function() {
+    // Check for Back Button click first
+    if (gameState === STATE_START_SCREEN || gameState === STATE_CAUGHT || gameState === STATE_WON) {
+      if (
+        p.mouseX > backButtonRect.x &&
+        p.mouseX < backButtonRect.x + backButtonRect.w &&
+        p.mouseY > backButtonRect.y &&
+        p.mouseY < backButtonRect.y + backButtonRect.h
+      ) {
+        window.showGameMenu(); // This is the global function
+        return; // Stop further checks
+      }
+    }
+    
+    // Original mousePressed logic
+    if (gameState === STATE_START_SCREEN) {
+      let buttonX = p.width / 2 - 100;
+      let buttonY = p.height / 2 + 100;
+      let buttonW = 200;
+      let buttonH = 60;
+      if (p.mouseX > buttonX && p.mouseX < buttonX + buttonW && p.mouseY > buttonY && p.mouseY < buttonY + buttonH) {
+        startGame();
+      }
+    } else if (gameState === STATE_CAUGHT || gameState === STATE_WON) {
+      // Click anywhere else to return to start
+      gameState = STATE_START_SCREEN;
+    }
+  }
+
+  function resetGame() {
+    console.log("Generating new maze... AI is ADAPTING.");
+    
+    gameMap = generateMaze(GRID_WIDTH, GRID_HEIGHT);
+    addMazeLoops(gameMap, 30);
+    
+    // ★★★ MOVED AI logic to initializeAI() ★★★
+    // We only update the grid/costs if AI is already running
+    if (isAIInitialized && easystar) {
+      easystar.setGrid(gameMap);
+      applyHeatmapCosts();
+    }
+
+    player.x = 1;
+    player.y = 1;
+    guard.x = GRID_WIDTH - 2;
+    guard.y = 1;
+    guard.direction = 'left';
+    goal.x = 1;
+    goal.y = GRID_HEIGHT - 2;
+    exit.x = GRID_WIDTH - 2;
+    exit.y = GRID_HEIGHT - 2;
+
+    guardPath = [];
+    hasGoal = false;
+  }
+
+  function updateGuard() {
+    if (p.millis() - lastPathRequest > 500) {
+      easystar.findPath(guard.x, guard.y, player.x, player.y, (path) => {
+        if (path && path.length > 1) {
+          path.shift();
+          guardPath = path;
+          guardMindChanges++;
+        } else {
+          guardPath = [];
+        }
+      });
+      lastPathRequest = p.millis();
+    }
+
+    easystar.calculate();
+
+    if (guardPath.length > 0 && p.frameCount % GUARD_MOVE_FRAMES === 0) {
+      let nextStep = guardPath.shift();
+      
+      if (nextStep.x > guard.x) {
+        guard.direction = 'right';
+      } else if (nextStep.x < guard.x) {
+        guard.direction = 'left';
+      } else if (nextStep.y > guard.y) {
+        guard.direction = 'down';
+      } else if (nextStep.y < guard.y) {
+        guard.direction = 'up';
+      }
+      
+      guard.x = nextStep.x;
+      guard.y = nextStep.y;
+    }
+  }
+
+  // --- NEW HELPER FUNCTIONS ---
+
+  function startGame() {
+    resetGame();
+    initializeHeatmap(); // This just creates the array
+    startTime = p.millis(); // Start the timer
+    guardMindChanges = 0; // Reset stat
+    gameState = STATE_PLAYING;
+  }
+
+  function captureGameStats() {
+    lastGameDuration = (p.millis() - startTime) / 1000; // Get duration in seconds
+    lastGuardMindChanges = guardMindChanges;
+  }
+
+  function drawStartScreen() {
+    p.fill(0, 0, 0, 220);
+    p.rect(0, 0, p.width, p.height);
+    
+    drawBackButton(); // Draw the menu button
+    
+    p.fill(255);
+    p.textSize(80);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.text("The Unforgetting Guard", p.width / 2, p.height / 2 - 150);
+    
+    p.fill(200);
+    p.textSize(22);
+    p.textAlign(p.CENTER, p.TOP);
+    let instructions = "Get the item (bottom-left) and reach the exit (bottom-right).\n";
+    instructions += "Avoid the guard! It learns your path after every attempt.\n\n";
+    instructions += "Use ARROW KEYS to move.\n";
+    instructions += "Press 'B' for AI Debug View.";
+    p.text(instructions, p.width / 2, p.height / 2 - 50);
+    
+    let buttonX = p.width / 2 - 100;
+    let buttonY = p.height / 2 + 100;
+    p.fill(0, 150, 0); // Green
+    p.rect(buttonX, buttonY, 200, 60, 10);
+    p.fill(255);
+    p.textSize(32);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.text("START", p.width / 2, buttonY + 30);
+  }
+
+  function drawEndScreen(didWin) {
+    p.fill(0, 0, 0, 180);
+    p.rect(0, 0, p.width, p.height);
+    
+    drawBackButton(); // Draw the menu button
+    
+    if (didWin) {
+      p.fill(0, 255, 0);
+      p.textSize(80);
+      p.textAlign(p.CENTER, p.CENTER);
+      p.text("YOU ESCAPED!", p.width / 2, p.height / 2 - 150);
+    } else {
+      p.fill(255, 0, 0);
+      p.textSize(80);
+      p.textAlign(p.CENTER, p.CENTER);
+      p.text("YOU WERE CAUGHT!", p.width / 2, p.height / 2 - 150);
+    }
+    
+    p.fill(255);
+    p.textSize(32);
+    p.textAlign(p.CENTER, p.CENTER);
+    
+    let timeText = "Time: " + p.nf(lastGameDuration, 0, 2) + " seconds";
+    p.text(timeText, p.width / 2, p.height / 2);
+    
+    let aiText = "Guard re-thinks: " + lastGuardMindChanges + " times";
+    p.text(aiText, p.width / 2, p.height / 2 + 50);
+    
+    p.fill(200);
+    p.textSize(20);
+    p.text("Click to return to the main menu.", p.width / 2, p.height / 2 + 150);
+  }
+
+  // --- MAZE & MAP FUNCTIONS ---
+
+  function generateMaze(w, h) {
+    let maze = [];
+    for (let y = 0; y < h; y++) {
+      maze.push(new Array(w).fill(1)); // Fill with walls
+    }
+
+    let stack = [];
+    let startX = 1;
+    let startY = 1;
+    maze[startY][startX] = 0;
+    stack.push({ x: startX, y: startY });
+
+    while (stack.length > 0) {
+      let current = stack.pop();
+      let neighbors = [];
+      let directions = [[0, -2], [2, 0], [0, 2], [-2, 0]];
+      p.shuffle(directions, true);
+
+      for (let d of directions) {
+        let nx = current.x + d[0];
+        let ny = current.y + d[1];
+        if (nx > 0 && nx < w - 1 && ny > 0 && ny < h - 1 && maze[ny][nx] === 1) {
+          neighbors.push({ x: nx, y: ny, dx: d[0], dy: d[1] });
+        }
+      }
+
+      if (neighbors.length > 0) {
+        stack.push(current);
+        let chosen = neighbors[0];
+        let wallX = current.x + chosen.dx / 2;
+        let wallY = current.y + chosen.dy / 2;
+        maze[wallY][wallX] = 0;
+        maze[chosen.y][chosen.x] = 0;
+        stack.push(chosen);
+      }
+    }
+    return maze;
+  }
+
+  function addMazeLoops(maze, loopsToCreate = 20) {
+    console.log("Adding loops...");
+    let loops = 0;
+    while (loops < loopsToCreate) {
+      let x = p.floor(p.random(1, GRID_WIDTH - 1));
+      let y = p.floor(p.random(1, GRID_HEIGHT - 1));
+
+      if (maze[y][x] === 1) {
+        if ( (isWall(x-1, y) === false && isWall(x+1, y) === false) ||
+             (isWall(x, y-1) === false && isWall(x, y+1) === false) )
+        {
+          maze[y][x] = 0;
+          loops++;
+        }
+      }
+    }
+  }
+
+  function initializeHeatmap() {
+    heatmap = [];
+    for (let y = 0; y < GRID_HEIGHT; y++) {
+      let newRow = [];
+      for (let x = 0; x < GRID_WIDTH; x++) {
+        newRow.push(0);
+      }
+      heatmap.push(newRow);
+    }
+  }
+
+  function isWall(x, y) {
+    if (x < 0 || x >= GRID_WIDTH || y < 0 || y >= GRID_HEIGHT) {
+      return true;
+    }
+    if (!gameMap) return true;
+    return gameMap[y][x] === 1;
+  }
+
+  // --- DRAWING FUNCTIONS ---
+
+  function drawMap() {
+    if (!imgFloor || !imgWall || !gameMap) return;
+
+    for (let y = 0; y < GRID_HEIGHT; y++) {
+      for (let x = 0; x < GRID_WIDTH; x++) {
+        if (gameMap[y][x] === 1) {
+          p.image(imgWall, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        } else {
+          p.image(imgFloor, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
+      }
+    }
+  }
+
+  function drawHeatmap() {
+    let maxHeat = 0;
+    for (let y = 0; y < GRID_HEIGHT; y++) {
+      for (let x = 0; x < GRID_WIDTH; x++) {
+        if (heatmap[y][x] > maxHeat) {
+          maxHeat = heatmap[y][x];
+        }
+      }
+    }
+    
+    if (maxHeat === 0) return;
+
+    for (let y = 0; y < GRID_HEIGHT; y++) {
+      for (let x = 0; x < GRID_WIDTH; x++) {
+        let heatValue = heatmap[y][x];
+        if (heatValue > 0) {
+          let alpha = p.map(heatValue, 0, maxHeat, 0, 150);
+          p.fill(255, 0, 0, alpha);
+          p.noStroke();
+          p.rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
+      }
+    }
+  }
+
+  function drawPlayer() {
+    if (!imgPlayer) return;
+    p.image(imgPlayer, player.x * TILE_SIZE, player.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+  }
+
+  function drawGuard() {
+    if (!imgGuard) return;
+    p.image(imgGuard, guard.x * TILE_SIZE, guard.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+  }
+
+  function drawGoal() {
+    if (!imgGoal) return;
+    p.image(imgGoal, goal.x * TILE_SIZE, goal.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+  }
+
+  function drawExit() {
+    if (!imgExit) return;
+    p.image(imgExit, exit.x * TILE_SIZE, exit.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+  }
+  
+}; // ★★★ End of WRAPPER FUNCTION ★★★
+</script>
