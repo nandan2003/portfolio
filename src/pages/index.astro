@@ -9,6 +9,7 @@ import ContentCode from '../components/ContentAbout.astro';
 import ContentResume from '../components/ContentResume.astro';
 import ContentAvatar from '../components/ContentAvatar.astro';
 import ContentTerminal from '../components/ContentTerminal.astro';
+import ContentGame from '../components/ContentGame.astro';
 ---
 
 <Layout>
@@ -64,6 +65,13 @@ import ContentTerminal from '../components/ContentTerminal.astro';
                         class="tab-radio"
                     />
 
+                    <input
+                        type="radio"
+                        id="tab5"
+                        name="tabs"
+                        class="tab-radio"
+                    />
+
                     <!-- Start: Tab bar -->
                     <div class="flex bg-black border-b border-gray-600 sticky top-0 z-10">
 
@@ -84,6 +92,11 @@ import ContentTerminal from '../components/ContentTerminal.astro';
 
                         <ContentLink
                             contentId="tab4"
+                            contentName="Funs"
+                        />
+
+                        <ContentLink
+                            contentId="tab5"
                             contentName="AI Avatar"
                         />
 
@@ -113,9 +126,15 @@ import ContentTerminal from '../components/ContentTerminal.astro';
 
                         <!-- Start: Avatar content -->
                         <div id="content4" class="tab-content">
-                            <ContentAvatar />
+                            <ContentGame />
                         </div>
                         <!-- End: Avatar content -->
+
+                        <!-- Start: Fun content -->
+                        <div id="content5" class="tab-content">
+                            <ContentAvatar />
+                        </div>
+                        <!-- End: Fun content -->
 
                     </div>
                     <!-- End: Tab content -->
@@ -184,6 +203,15 @@ import ContentTerminal from '../components/ContentTerminal.astro';
     }
 
     #tab4:checked ~ .flex .tab-link:nth-child(4) {
+        @apply border-b-2 border-b-primary;
+    }
+
+    /* When tab5 is checked, show content5 and highlight its tab */
+    #tab5:checked ~ * #content5 {
+        @apply block opacity-100;
+    }
+
+    #tab5:checked ~ .flex .tab-link:nth-child(5) {
         @apply border-b-2 border-b-primary;
     }
 
