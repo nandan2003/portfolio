@@ -54,7 +54,7 @@ window.guardSketch = (p) => {
 
   // --- Pathfinding ---
   let easystar;
-  let isAIInitialized = false; // ★★★ ADDED THIS LINE to fix guard
+  let isAIInitialized = false; 
   let lastPathRequest = 0;
 
   // --- Stat Tracking ---
@@ -68,10 +68,12 @@ window.guardSketch = (p) => {
   
   // --- Back Button ---
   let backButtonRect;
+  
+  // ★★★ NEW: RESTART BUTTON VARIABLE ★★★
+  let restartButtonRect;
 
   p.preload = function() {
     try {
-      // ★★★ Using your correct path ★★★
       const imgPath = '/img/guard/';
       imgFloor = p.loadImage(imgPath + "floor.png");
       imgWall = p.loadImage(imgPath + "wall.png");
@@ -92,7 +94,13 @@ window.guardSketch = (p) => {
     // Define Back Button position
     backButtonRect = { x: 10, y: 10, w: 90, h: 30 };
     
-    // ★★★ REMOVED AI init from here to prevent crash ★★★
+    // ★★★ NEW: DEFINE RESTART BUTTON (used on end screen) ★★★
+    restartButtonRect = { 
+      x: p.width / 2 - 100, 
+      y: p.height / 2 + 120, // Positioned below the stats
+      w: 200, 
+      h: 60 
+    };
 
     gameMap = generateMaze(GRID_WIDTH, GRID_HEIGHT);
     addMazeLoops(gameMap, 30);
@@ -109,15 +117,12 @@ window.guardSketch = (p) => {
     // --- 1. LOGIC UPDATES ---
     if (gameState === STATE_PLAYING) {
       
-      // ★★★ NEW BLOCK TO LOAD AI SAFELY ★★★
-      // This waits for EasyStar to be ready before init
       if (!isAIInitialized && typeof EasyStar !== "undefined") {
         initializeAI();
       }
-      // ★★★ END OF NEW BLOCK ★★★
 
       handlePlayerMovement();
-      if (easystar) { // This check will now pass
+      if (easystar) { 
         updateGuard();
       }
     }
@@ -128,7 +133,7 @@ window.guardSketch = (p) => {
       drawGoal();
     }
     drawExit();
-    if (easystar) { // This check will now pass
+    if (easystar) { 
       drawGuard();
     }
     drawPlayer();
@@ -155,7 +160,6 @@ window.guardSketch = (p) => {
     }
   }
 
-  // ★★★ NEW FUNCTION TO APPLY AI COSTS ★★★
   function applyHeatmapCosts() {
     if (easystar && heatmap) {
       for (let y = 0; y < GRID_HEIGHT; y++) {
@@ -169,7 +173,6 @@ window.guardSketch = (p) => {
     }
   }
 
-  // ★★★ NEW FUNCTION TO SAFELY START THE AI ★★★
   function initializeAI() {
     if (isAIInitialized) return; // Don't run twice
 
@@ -242,15 +245,21 @@ window.guardSketch = (p) => {
     }
   }
 
+  // ★★★ FIX 1: 'B' KEY BUG ★★★
+  // We only run this function if the game is in the PLAYING state.
   p.keyPressed = function() {
+    if (gameState !== STATE_PLAYING) return;
+    
     if (p.keyCode === 66) { // 'B' key
       isDebugMode = !isDebugMode;
       console.log("Debug mode:", isDebugMode);
     }
   }
 
+  // ★★★ FIX 2: RESTART BUTTON LOGIC ★★★
+  // Updated to handle the new Restart button.
   p.mousePressed = function() {
-    // Check for Back Button click first
+    // 1. Check for Back Button (Global menu)
     if (gameState === STATE_START_SCREEN || gameState === STATE_CAUGHT || gameState === STATE_WON) {
       if (
         p.mouseX > backButtonRect.x &&
@@ -258,12 +267,12 @@ window.guardSketch = (p) => {
         p.mouseY > backButtonRect.y &&
         p.mouseY < backButtonRect.y + backButtonRect.h
       ) {
-        window.showGameMenu(); // This is the global function
+        window.showGameMenu();
         return; // Stop further checks
       }
     }
     
-    // Original mousePressed logic
+    // 2. Check for Start Screen button
     if (gameState === STATE_START_SCREEN) {
       let buttonX = p.width / 2 - 100;
       let buttonY = p.height / 2 + 100;
@@ -271,10 +280,19 @@ window.guardSketch = (p) => {
       let buttonH = 60;
       if (p.mouseX > buttonX && p.mouseX < buttonX + buttonW && p.mouseY > buttonY && p.mouseY < buttonY + buttonH) {
         startGame();
+        return;
       }
-    } else if (gameState === STATE_CAUGHT || gameState === STATE_WON) {
-      // Click anywhere else to return to start
-      gameState = STATE_START_SCREEN;
+    } 
+    
+    // 3. Check for End Screen buttons
+    else if (gameState === STATE_CAUGHT || gameState === STATE_WON) {
+      // Check for Restart Button click
+      if (p.mouseX > restartButtonRect.x && p.mouseX < restartButtonRect.x + restartButtonRect.w &&
+          p.mouseY > restartButtonRect.y && p.mouseY < restartButtonRect.y + restartButtonRect.h) 
+      {
+        startGame(); // This is the "restart" action
+        return;
+      }
     }
   }
 
@@ -284,8 +302,6 @@ window.guardSketch = (p) => {
     gameMap = generateMaze(GRID_WIDTH, GRID_HEIGHT);
     addMazeLoops(gameMap, 30);
     
-    // ★★★ MOVED AI logic to initializeAI() ★★★
-    // We only update the grid/costs if AI is already running
     if (isAIInitialized && easystar) {
       easystar.setGrid(gameMap);
       applyHeatmapCosts();
@@ -384,6 +400,8 @@ window.guardSketch = (p) => {
     p.text("START", p.width / 2, buttonY + 30);
   }
 
+  // ★★★ FIX 2: RESTART BUTTON DRAW ★★★
+  // Replaced "Click to return" text with the new button.
   function drawEndScreen(didWin) {
     p.fill(0, 0, 0, 180);
     p.rect(0, 0, p.width, p.height);
@@ -412,9 +430,14 @@ window.guardSketch = (p) => {
     let aiText = "Guard re-thinks: " + lastGuardMindChanges + " times";
     p.text(aiText, p.width / 2, p.height / 2 + 50);
     
-    p.fill(200);
-    p.textSize(20);
-    p.text("Click to return to the main menu.", p.width / 2, p.height / 2 + 150);
+    // --- Draw Restart Button ---
+    p.fill(0, 150, 0); // Green
+    p.rectMode(p.CORNER); // Ensure correct mode
+    p.rect(restartButtonRect.x, restartButtonRect.y, restartButtonRect.w, restartButtonRect.h, 10);
+    p.fill(255);
+    p.textSize(32);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.text("RESTART", restartButtonRect.x + restartButtonRect.w / 2, restartButtonRect.y + 30);
   }
 
   // --- MAZE & MAP FUNCTIONS ---
