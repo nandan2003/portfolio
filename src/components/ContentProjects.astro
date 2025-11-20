@@ -1,77 +1,125 @@
 ---
+interface ProjectLink {
+    url: string;
+    buttonLabel?: string;
+    target?: string;
+    title?: string;
+}
+
 interface Project {
     name: string;
     description: string;
-    link: {
-        url?: string;
-        target?: string;
-        title?: string;
-        buttonLabel?: string;
-    };
-};
+    links: ProjectLink[];
+}
 
-const projects: Project[] = [{
-    name: 'GoodFoods Restaurant Chain Bot',
-    description: 'Conversational AI Reservation Agent for GoodFoods, a multi-location restaurant chain. It can user intent , offering restaurant recommendations, making new reservations, etc.',
-    link: {
-        url: 'https://github.com/nandan2003/restaurant-goodfoods',
+const projects: Project[] = [
+    {
+        name: 'End-to-End CPU-Trained GPT System',
+        description: 'A fully functional 11M parameter GPT language model built and trained from scratch entirely on CPU hardware. The project spans the complete LLM lifecycle from custom tokenization and dataset sharding to training with PyTorch and cloud deployment via Docker on Azure.',
+        links: [
+            {
+                url: 'https://github.com/nandan2003/ML-portfolio/tree/main/End-to-End%20CPU-Trained%20GPT%20System%3A%20From%20Dataset%20to%20Deployment',
+                buttonLabel: 'GitHub'
+            },
+            {
+                url: 'https://helixgpt.azurewebsites.net/', 
+                buttonLabel: 'Live'
+            }
+        ]
+    },
+    {
+        name: 'Multi-Model Machine Learning Web Application',
+        description: 'A centralized AI prediction platform that serves four distinct machine learning models through a unified Flask interface. Hosted on Microsoft Azure, it handles diverse tasks ranging from healthcare diagnostics to financial estimation using robust Scikit-learn pipelines.',
+        links: [
+            {
+                url: 'https://github.com/nandan2003/ML-Learning/tree/main/Advanced/Deploy%20Multiple%20ML%20models%20to%20Azure%20Web%20App',
+                buttonLabel: 'GitHub'
+            },
+            {
+                url: 'https://multi-ml-models-nandanv76.azurewebsites.net/', 
+                buttonLabel: 'Live'
+            }
+        ]
+    },
+    {
+        name: 'Machine Learning & AI Portfolio: From Foundation to MLOps',
+        description: 'A comprehensive monorepo documenting an end-to-end journey in AI. It houses over 10 projects ranging from classical regression and clustering algorithms to advanced deep learning systems (LSTMs, CNNs) and cloud-native deployments on Microsoft Azure and Docker.',
+        links: [
+            {
+                url: 'https://github.com/nandan2003/ML-Learning',
+                buttonLabel: 'GitHub'
+            }
+        ]
+    },
+    {
+        name: 'GoodFoods AI Reservation Assistant',
+        description: 'A production-oriented conversational AI agent designed for a multi-location restaurant chain. Built on a framework-free, decoupled architecture, it manages 24/7 reservations, enforces strict business logic via dynamic prompting, and ensures data sovereignty by replacing third-party booking platforms.',
+        links: [
+            {
+                url: 'https://github.com/nandan2003/restaurant-goodfoods',
+                buttonLabel: 'GitHub'
+            }
+        ]
+    },
+    {
+        name: 'Formula 1 Azure Databricks Data Engineering',
+        description: 'An end-to-end cloud data pipeline built on the Azure ecosystem. It implements a "Medallion" architecture (Bronze, Silver, Gold) using Databricks and Data Factory to ingest, transform, and analyze Formula 1 race data with automated incremental loading.',
+        links: [
+            {
+                url: 'https://github.com/nandan2003/Databricks-Formula1-Project/tree/main',
+                buttonLabel: 'GitHub'
+            }
+        ]
     }
-}, {
-    name: 'Qivi.io',
-    description: 'Qivi is an all-in-one application designed to streamline business operations, enhance productivity, and maximize success. Data security is a priority.',
-    link: {
-        url: 'https://qivi.io/'
-    }
-}, {
-    name: 'TECHPOINT.de',
-    description: 'TECHPOINT is a local IT service provider based in the Starnberg district and the Fünfseenland region, specializing in delivering reliable and modern IT solutions.',
-    link: {
-        url: 'https://techpoint.de/'
-    }
-}];
+];
 ---
 
 <div>
-
-    <!-- <h2 class="text-2xl font-bold text-white mb-4">Latest Projects</h2> -->
-
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {projects.map(project =>
 
-            <div class="flex flex-col justify-center items-start border border-gray-700 rounded-lg p-4 bg-black">
+            <div class="flex flex-col justify-between items-start border border-gray-700 rounded-lg p-4 bg-black">
 
-                <h3 class="text-xl font-semibold text-white mb-2">
-                    {project.name}
-                </h3>
+                <div>
+                    <h3 class="text-xl font-semibold text-white mb-2">
+                        {project.name}
+                    </h3>
 
-                <p class="text-gray-400">
-                    {project.description}
-                </p>
+                    <p class="text-gray-400 mb-4">
+                        {project.description}
+                    </p>
+                </div>
 
-                {
-                    project.link?.url ?
-                        <a
-                            href={project.link.url}
-                            title={project.link.title || project.name}
-                            target={project.link.target || '_blank'}
-                            class="
-                                w-full px-4 py-2.5 mt-4 text-center
-
-                                border border-gray-600 rounded-lg
-
-                                hover:text-primary
-                                hover:border-primary
-                            ">
-                            {project.link.buttonLabel || 'Open Project Website'}
-                        </a>
-                    : null
-                }
+                {/* UPDATES HERE:
+                    1. Changed 'flex-col' to 'flex-row' (makes them side-by-side)
+                    2. Added 'flex-wrap' (safety for mobile screens)
+                */}
+                <div class="w-full flex flex-row flex-wrap gap-4 mt-auto">
+                    {
+                        project.links.map(link => (
+                             <a
+                                href={link.url}
+                                title={link.title || project.name}
+                                target={link.target || '_blank'}
+                                class="
+                                    flex-1 
+                                    px-4 py-2.5
+                                    border border-gray-600 rounded-lg
+                                    text-white text-center
+                                    hover:text-primary
+                                    hover:border-primary
+                                    transition-colors
+                                ">
+                                {link.buttonLabel || 'Open Project Website'}
+                            </a>
+                        ))
+                    }
+                </div>
 
             </div>
 
         )}
 
     </div>
-
 </div>
